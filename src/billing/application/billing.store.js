@@ -13,11 +13,6 @@ import useIamStore from "../../iam/application/iam.store.js";
 const billingApi = new BillingApi();
 const paymentGateway = new PaymentGateway();
 
-/**
- * Reactive state of the Payment & Billing bounded context.
- *
- * @type {{transactions: PaymentTransaction[], receipts: Receipt[], loaded: boolean, processing: boolean, errors: Error[]}}
- */
 const state = reactive({
     transactions: [],
     receipts: [],
@@ -26,36 +21,25 @@ const state = reactive({
     errors: []
 });
 
-/** @returns {?number} Identifier of the signed-in user. */
 const currentUserId = () => useIamStore().currentUserId.value;
 
-/** @type {import('vue').ComputedRef<PaymentTransaction[]>} Transactions of the signed-in user, newest first. */
 const myTransactions = computed(() => state.transactions
     .filter(transaction => transaction.userId === currentUserId())
     .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')));
 
-/** @type {import('vue').ComputedRef<Receipt[]>} Receipts of the signed-in user, newest first. */
 const myReceipts = computed(() => state.receipts
     .filter(receipt => receipt.userId === currentUserId())
     .sort((a, b) => (b.issuedAt ?? '').localeCompare(a.issuedAt ?? '')));
 
-/** @type {import('vue').ComputedRef<?PaymentTransaction>} Paid transaction that covers today. */
 const activeSubscription = computed(() => {
     const today = new Date().toLocaleDateString('en-CA');
     return myTransactions.value.find(transaction => transaction.covers(today)) ?? null;
 });
 
-/** @type {import('vue').ComputedRef<SubscriptionPlan>} Current plan of the signed-in user. */
 const currentPlan = computed(() => activeSubscription.value?.plan ?? new SubscriptionPlan(SubscriptionPlan.FREE));
 
-/** @type {import('vue').ComputedRef<?PaymentMethod>} Last payment method used. */
 const lastPaymentMethod = computed(() => myTransactions.value[0]?.method ?? null);
 
-/**
- * Loads payment transactions and receipts.
- *
- * @returns {Promise<void>}
- */
 async function fetchBilling() {
     try {
         const [transactionsResponse, receiptsResponse] = await Promise.all([
@@ -71,37 +55,14 @@ async function fetchBilling() {
     }
 }
 
-/**
- * Checks the publication limit of the current plan. Used by the Matchmaking context.
- *
- * @param {number} usedThisMonth - Publications created this month.
- * @returns {boolean} True when one more publication is allowed.
- */
 function canPublish(usedThisMonth) {
     return currentPlan.value.allowsPublication(usedThisMonth);
 }
 
-/**
- * @param {number} transactionId - Transaction identifier.
- * @returns {Receipt|undefined} Receipt issued for the transaction.
- */
 function getReceiptByTransactionId(transactionId) {
     return state.receipts.find(receipt => receipt.transactionId === transactionId);
 }
 
-/**
- * Executes the upgrade use case: charges the Pro plan, records the transaction and issues the receipt.
- *
- * @param {Object} form - Checkout form data.
- * @param {string} form.cardNumber - Card number.
- * @param {string} form.holderName - Card holder.
- * @param {string} form.expiry - Expiration (MM/YY).
- * @param {string} form.receiptType - "boleta" or "factura".
- * @param {string} form.customerName - Name or business name on the receipt.
- * @param {string} form.customerDocument - DNI or RUC on the receipt.
- * @returns {Promise<{transaction: PaymentTransaction, receipt: Receipt}>} Paid transaction and issued receipt.
- * @throws {Error} When the card is declined or the data is invalid.
- */
 async function upgradeToPro(form) {
     if (!currentPlan.value.isFree) throw new Error('validation.plan-already-active');
     const receiptType = new ReceiptType(form.receiptType);
@@ -148,12 +109,6 @@ const billingStore = {
     upgradeToPro
 };
 
-/**
- * Application service store for the Payment & Billing bounded context.
- * It manages subscription plans, payment transactions and electronic receipts.
- *
- * @returns {typeof billingStore} Store state, getters and actions.
- */
 const useBillingStore = () => billingStore;
 
 export default useBillingStore;

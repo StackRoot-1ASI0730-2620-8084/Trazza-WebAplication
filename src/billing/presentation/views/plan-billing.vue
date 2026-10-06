@@ -50,9 +50,6 @@ watch(checkoutDialog, open => {
   form.holderName = iamStore.state.currentUser?.fullName ?? '';
 });
 
-/**
- * Executes the upgrade to the Pro plan.
- */
 const upgrade = async () => {
   errorMessage.value = '';
   try {
@@ -65,10 +62,6 @@ const upgrade = async () => {
   }
 };
 
-/**
- * Opens the receipt of a transaction.
- * @param {Object} transaction - Paid transaction.
- */
 const openReceipt = (transaction) => {
   selectedTransaction.value = transaction;
   selectedReceipt.value = billingStore.getReceiptByTransactionId(transaction.id) ?? null;

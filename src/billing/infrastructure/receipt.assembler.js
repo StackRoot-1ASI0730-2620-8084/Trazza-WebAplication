@@ -2,16 +2,7 @@ import {Receipt} from "../domain/model/receipt.entity.js";
 import {ReceiptType} from "../domain/model/receipt-type.value-object.js";
 import {Money} from "../../shared/domain/model/money.value-object.js";
 
-/**
- * Maps receipt resources into domain aggregates and back.
- *
- * @class ReceiptAssembler
- */
 export class ReceiptAssembler {
-    /**
-     * @param {Object} resource - Receipt resource payload.
-     * @returns {Receipt} Receipt aggregate.
-     */
     static toEntityFromResource(resource) {
         return new Receipt({
             id: resource.id,
@@ -26,12 +17,6 @@ export class ReceiptAssembler {
         });
     }
 
-    /**
-     * Parses receipt resources from a response and maps them into aggregates.
-     *
-     * @param {import('axios').AxiosResponse<Array<Object>|Object>} response - HTTP response.
-     * @returns {Receipt[]} Receipt aggregates.
-     */
     static toEntitiesFromResponse(response) {
         if (response.status !== 200) {
             console.error(`${response.status}, ${response.statusText}`);
@@ -41,10 +26,6 @@ export class ReceiptAssembler {
         return resources.map(resource => this.toEntityFromResource(resource));
     }
 
-    /**
-     * @param {Receipt} entity - Receipt aggregate.
-     * @returns {Object} Receipt resource payload.
-     */
     static toResourceFromEntity(entity) {
         return {
             id: entity.id ?? undefined,
