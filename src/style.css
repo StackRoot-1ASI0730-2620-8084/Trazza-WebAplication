@@ -1,0 +1,152 @@
+:root {
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #131b2e;
+  background-color: #f7f8ff;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  --trazza-sidebar-width: 15rem;
+  --trazza-ink: #131b2e;
+  --trazza-muted: #656a76;
+  --trazza-line: #e1e4f3;
+  --trazza-surface: #ffffff;
+  --trazza-accent: #0037b0;
+  --trazza-soft: #e6ebff;
+  --trazza-map: #e8eef7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+#app {
+  width: 100%;
+}
+
+.trazza-page {
+  padding: 1.5rem;
+  max-width: 76rem;
+}
+
+.trazza-page-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--trazza-ink);
+}
+
+.trazza-page-header p {
+  margin: 0.25rem 0 0;
+  color: var(--trazza-muted);
+}
+
+.trazza-panel {
+  background: var(--trazza-surface);
+  border: 1px solid var(--trazza-line);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.trazza-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: #434655;
+}
+
+.trazza-overline {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--trazza-muted);
+}
+
+.trazza-muted {
+  color: var(--trazza-muted);
+}
+
+.trazza-kpi {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--trazza-ink);
+  line-height: 1.1;
+}
+
+.trazza-route {
+  font-weight: 700;
+  color: var(--trazza-ink);
+}
+
+body {
+  background-color: #f7f8ff;
+}
+
+.trazza-avatar {
+  background: var(--trazza-soft);
+  color: var(--trazza-accent);
+  font-weight: 700;
+}
+
+.trazza-pills.p-selectbutton {
+  background: transparent;
+  gap: 0.4rem;
+  padding: 0;
+}
+
+.trazza-pills .p-togglebutton {
+  border-radius: 999px !important;
+  background: var(--trazza-soft);
+  border: 1px solid transparent;
+  color: #434655;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+.trazza-pills .p-togglebutton .p-togglebutton-content {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0;
+}
+
+.trazza-pills .p-togglebutton-checked {
+  background: var(--trazza-accent);
+  color: #ffffff;
+}
+
+.trazza-pills .p-togglebutton-checked .p-togglebutton-label {
+  color: #ffffff;
+}

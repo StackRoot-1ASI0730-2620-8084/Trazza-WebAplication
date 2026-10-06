@@ -1,0 +1,653 @@
+@startuml
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "Shared Kernel" as shared {
+    package "Domain" as shared_domain {
+        class Money <<value object>> {
+            - _amount: number
+            - _currency: string
+            + {static} zero(currency): Money
+            + formatted: string
+            + add(other): Money
+            + multiply(factor): Money
+            + equals(other): boolean
+            + isGreaterThan(other): boolean
+        }
+
+        class Address <<value object>> {
+            - _street: string
+            - _district: string
+            + location: GeoLocation
+            + fullAddress: string
+            + equals(other): boolean
+        }
+
+        class GeoLocation <<value object>> {
+            - _latitude: number
+            - _longitude: number
+            + distanceTo(other): number
+            + moveTowards(target, fraction): GeoLocation
+            + distanceToSegment(start, end): number
+        }
+
+        class LimaDistricts <<catalog>>
+
+        Address --> LimaDistricts
+        Address ..> GeoLocation
+    }
+
+    package "Application" as shared_application {
+        class NotificationStore <<store>> {
+            - state: {notifications}
+            + unreadCount: computed
+            + notify(params)
+            + markAllAsRead()
+            + clear()
+        }
+    }
+
+    package "Infrastructure" as shared_infrastructure {
+        class BaseApi {
+            - _http: AxiosInstance
+            + http: AxiosInstance
+        }
+
+        class BaseEndpoint {
+            - _http: AxiosInstance
+            - _endpointPath: string
+            + getAll(params): Promise
+            + getById(id): Promise
+            + create(resource): Promise
+            + update(id, resource): Promise
+            + delete(id): Promise
+        }
+
+        BaseEndpoint --> BaseApi
+    }
+
+    package "Presentation" as shared_presentation {
+        class Layout <<component>>
+        class SideMenu <<component>>
+        class TopBar <<component>>
+        class LanguageSwitcher <<component>>
+        class AddressField <<component>>
+        class Dashboard <<component>>
+        class PageNotFound <<component>>
+
+        Layout --> SideMenu
+        Layout --> TopBar
+        TopBar --> LanguageSwitcher
+        TopBar --> NotificationStore
+    }
+}
+
+package "IAM & Profiles Bounded Context" as iam {
+    package "Domain" as iam_domain {
+        class User <<aggregate root>> {
+            - _id: number
+            - _fullName: string
+            - _email: Email
+            - _phone: Phone
+            - _role: UserRole
+            + isCarrier: boolean
+            + isMerchant: boolean
+            + updateContact(fullName, phone)
+        }
+
+        class CarrierProfile <<aggregate root>> {
+            - _id: number
+            - _userId: number
+            - _fullName: string
+            - _dni: Dni
+            - _phone: Phone
+            - _verified: boolean
+            - _vehicles: Vehicle[]
+            + activeVehicles: Vehicle[]
+            + findVehicle(id): Vehicle
+            + addVehicle(vehicle): Vehicle
+            + updateVehicle(vehicle)
+            + removeVehicle(id)
+            + updateContact(fullName, phone)
+        }
+
+        class Vehicle <<entity>> {
+            - _id: number
+            - _plate: LicensePlate
+            - _brandModel: string
+            - _bodyType: string
+            - _capacity: LoadCapacity
+            - _active: boolean
+            + label: string
+            + activate()
+            + deactivate()
+        }
+
+        class MerchantProfile <<aggregate root>> {
+            - _id: number
+            - _userId: number
+            - _businessName: string
+            - _contactName: string
+            - _ruc: Ruc
+            - _phone: Phone
+            - _verified: boolean
+            + updateBusiness(businessName, contactName, phone)
+        }
+
+        class Email <<value object>>
+        class Phone <<value object>>
+        class Dni <<value object>>
+        class Ruc <<value object>>
+        class LicensePlate <<value object>>
+        class LoadCapacity <<value object>> {
+            + canHold(weightKg, volumeM3): boolean
+        }
+        class UserRole <<value object>>
+        class SignInCommand <<command>>
+        class SignUpCommand <<command>>
+
+        User *-- Email
+        User *-- Phone
+        User *-- UserRole
+        CarrierProfile *-- "0..*" Vehicle
+        CarrierProfile *-- Dni
+        Vehicle *-- LicensePlate
+        Vehicle *-- LoadCapacity
+        MerchantProfile *-- Ruc
+        SignUpCommand ..> Dni
+        SignUpCommand ..> Ruc
+    }
+
+    package "Application" as iam_application {
+        class IamStore <<store>> {
+            - state: {currentUser, errors, processing}
+            + isSignedIn: computed
+            + currentRole: computed
+            + currentUserId: computed
+            + signIn(signInCommand): Promise<User>
+            + signUp(signUpCommand): Promise<User>
+            + signOut()
+            + updateCurrentUser(data)
+        }
+
+        class ProfileStore <<store>> {
+            - state: {carrierProfiles, merchantProfiles, loaded, errors}
+            + currentCarrierProfile: computed
+            + currentMerchantProfile: computed
+            + fetchProfiles()
+            + createProfileForUser(user, command)
+            + addVehicle(data)
+            + updateVehicle(data)
+            + toggleVehicle(id)
+            + removeVehicle(id)
+            + updateCurrentProfile(data)
+            + displayNameOf(userId): string
+        }
+    }
+
+    package "Infrastructure" as iam_infrastructure {
+        class IamApi
+        class ProfileApi
+        class UserAssembler <<assembler>>
+        class CarrierProfileAssembler <<assembler>>
+        class VehicleAssembler <<assembler>>
+        class MerchantProfileAssembler <<assembler>>
+        class iamInterceptor <<interceptor>>
+        class authenticationGuard <<guard>>
+
+        IamApi --|> BaseApi
+        ProfileApi --|> BaseApi
+        CarrierProfileAssembler --> VehicleAssembler
+        authenticationGuard --> IamStore
+        BaseApi ..> iamInterceptor
+    }
+
+    package "Presentation" as iam_presentation {
+        class SignIn <<view>>
+        class SignUp <<view>>
+        class Profile <<view>>
+        class VehicleList <<view>>
+        class VehicleForm <<view>>
+        class VehicleCard <<component>>
+
+        VehicleList --> VehicleCard
+    }
+
+    IamStore --> IamApi
+    IamStore --> UserAssembler
+    IamStore --> ProfileStore
+    ProfileStore --> ProfileApi
+    ProfileStore --> CarrierProfileAssembler
+    ProfileStore --> MerchantProfileAssembler
+    SignIn --> IamStore
+    SignUp --> IamStore
+    Profile --> ProfileStore
+    VehicleList --> ProfileStore
+    VehicleForm --> ProfileStore
+}
+
+package "Matchmaking & Routing Bounded Context (Core)" as matchmaking {
+    package "Domain" as matchmaking_domain {
+        class ReturnRoute <<aggregate root>> {
+            - _id: number
+            - _carrierId: number
+            - _vehicleId: number
+            - _origin: Address
+            - _destination: Address
+            - _departureDate: string
+            - _timeWindow: TimeWindow
+            - _availableWeightKg: number
+            - _availableVolumeM3: number
+            - _maxDetourKm: number
+            - _acceptedCargoTypes: CargoType[]
+            - _status: RouteStatus
+            + {static} create(params): ReturnRoute
+            + accepts(cargoType): boolean
+            + canCarry(weightKg, volumeM3): boolean
+            + reserveCapacity(weightKg, volumeM3)
+            + close()
+        }
+
+        class FreightRequest <<aggregate root>> {
+            - _id: number
+            - _code: string
+            - _merchantId: number
+            - _pickup: Address
+            - _delivery: Address
+            - _pickupDate: string
+            - _pickupWindow: TimeWindow
+            - _cargo: Cargo
+            - _offeredRate: Money
+            - _status: RequestStatus
+            + {static} create(params): FreightRequest
+            + publish()
+            + markMatched()
+            + cancel()
+        }
+
+        class MatchProposal <<aggregate root>> {
+            - _id: number
+            - _freightRequestId: number
+            - _returnRouteId: number
+            - _carrierId: number
+            - _merchantId: number
+            - _currentRate: Money
+            - _previousRate: Money
+            - _lastOfferBy: string
+            - _status: ProposalStatus
+            - _detour: Detour
+            + {static} create(params): MatchProposal
+            + isAwaiting(party): boolean
+            + accept(by)
+            + counter(rate, by)
+            + reject(by)
+            + confirm(by)
+            + close()
+        }
+
+        class RouteMatchingService <<domain service>> {
+            + {static} roadDistance(from, to): number
+            + {static} estimateTrip(from, to): object
+            + {static} calculateDetour(route, request): Detour
+            + {static} evaluate(route, request, options): object
+        }
+
+        class TimeWindow <<value object>> {
+            + overlaps(other): boolean
+        }
+        class Cargo <<value object>>
+        class CargoType <<value object>>
+        class Detour <<value object>> {
+            + isWithin(maxKm): boolean
+        }
+        class RouteStatus <<value object>>
+        class RequestStatus <<value object>>
+        class ProposalStatus <<value object>>
+
+        ReturnRoute *-- TimeWindow
+        ReturnRoute *-- "1..*" CargoType
+        ReturnRoute *-- RouteStatus
+        ReturnRoute *-- "2" Address
+        FreightRequest *-- Cargo
+        FreightRequest *-- TimeWindow
+        FreightRequest *-- RequestStatus
+        FreightRequest *-- "0..1" Money
+        Cargo *-- CargoType
+        MatchProposal *-- ProposalStatus
+        MatchProposal *-- Detour
+        MatchProposal *-- Money
+        MatchProposal ..> ReturnRoute : returnRouteId
+        MatchProposal ..> FreightRequest : freightRequestId
+        RouteMatchingService ..> ReturnRoute
+        RouteMatchingService ..> FreightRequest
+        RouteMatchingService ..> Detour
+    }
+
+    package "Application" as matchmaking_application {
+        class MatchmakingStore <<store>> {
+            - state: {returnRoutes, freightRequests, matchProposals, loaded, errors}
+            + myReturnRoutes: computed
+            + myFreightRequests: computed
+            + myProposals: computed
+            + proposalsAwaitingMe: computed
+            + publicationsThisMonth: computed
+            + fetchAll()
+            + publishReturnRoute(form)
+            + closeReturnRoute(route)
+            + saveFreightRequest(form, publish, id)
+            + publishFreightRequest(request)
+            + cancelFreightRequest(request)
+            + getLoadSuggestions(routeId, filters)
+            + findCarriersFor(requestId)
+            + sendProposal(params)
+            + acceptProposal(proposal)
+            + counterProposal(proposal, amount)
+            + rejectProposal(proposal)
+            + confirmMatch(proposal): Promise<Shipment>
+        }
+    }
+
+    package "Infrastructure" as matchmaking_infrastructure {
+        class MatchmakingApi
+        class ReturnRouteAssembler <<assembler>>
+        class FreightRequestAssembler <<assembler>>
+        class MatchProposalAssembler <<assembler>>
+
+        MatchmakingApi --|> BaseApi
+    }
+
+    package "Presentation" as matchmaking_presentation {
+        class ReturnRouteList <<view>>
+        class ReturnRouteForm <<view>>
+        class LoadSuggestions <<view>>
+        class LoadDetail <<view>>
+        class FreightRequestList <<view>>
+        class FreightRequestForm <<view>>
+        class FindCarriers <<view>>
+        class OfferList <<view>>
+        class OfferDetail <<view>>
+        class LoadSuggestionCard <<component>>
+        class CarrierCard <<component>>
+        class CounterOfferPanel <<component>>
+
+        LoadSuggestions --> LoadSuggestionCard
+        FindCarriers --> CarrierCard
+        LoadDetail --> CounterOfferPanel
+        OfferList --> CounterOfferPanel
+        OfferDetail --> CounterOfferPanel
+    }
+
+    MatchmakingStore --> MatchmakingApi
+    MatchmakingStore --> ReturnRouteAssembler
+    MatchmakingStore --> FreightRequestAssembler
+    MatchmakingStore --> MatchProposalAssembler
+    MatchmakingStore --> RouteMatchingService
+    ReturnRouteList --> MatchmakingStore
+    ReturnRouteForm --> MatchmakingStore
+    LoadSuggestions --> MatchmakingStore
+    LoadDetail --> MatchmakingStore
+    FreightRequestList --> MatchmakingStore
+    FreightRequestForm --> MatchmakingStore
+    FindCarriers --> MatchmakingStore
+    OfferList --> MatchmakingStore
+    OfferDetail --> MatchmakingStore
+}
+
+package "Service Execution & Monitoring Bounded Context" as execution {
+    package "Domain" as execution_domain {
+        class Shipment <<aggregate root>> {
+            - _id: number
+            - _code: string
+            - _carrierId: number
+            - _merchantId: number
+            - _pickup: Address
+            - _delivery: Address
+            - _rate: Money
+            - _status: ShipmentStatus
+            - _currentLocation: GeoLocation
+            - _events: TrackingEvent[]
+            - _incidents: Incident[]
+            + {static} open(params): Shipment
+            + deviationKm: number
+            + isOffRoute: boolean
+            + distanceToDeliveryKm: number
+            + etaMinutes: number
+            + confirmPickup()
+            + updateLocation(location): string
+            + confirmDelivery(options)
+            + confirmReception()
+            + cancel()
+            + reportIncident(incident): Incident
+        }
+
+        class Incident <<entity>> {
+            - _id: number
+            - _type: IncidentType
+            - _description: string
+            - _reporterId: number
+            - _reporterRole: string
+            - _reportedAt: string
+            - _status: string
+            + resolve()
+        }
+
+        class ShipmentStatus <<value object>> {
+            + isActive: boolean
+            + isMoving: boolean
+            + isDelivered: boolean
+            + step: number
+        }
+        class IncidentType <<value object>>
+
+        Shipment *-- "0..*" Incident
+        Shipment *-- ShipmentStatus
+        Shipment *-- "0..1" GeoLocation
+        Shipment *-- Money
+        Incident *-- IncidentType
+    }
+
+    package "Application" as execution_application {
+        class ExecutionStore <<store>> {
+            - state: {shipments, loaded, errors}
+            + myShipments: computed
+            + myActiveShipments: computed
+            + myFinishedShipments: computed
+            + fetchShipments()
+            + openShipment(data): Promise<Shipment>
+            + confirmPickup(shipment)
+            + shareLocation(shipment, location)
+            + confirmDelivery(shipment, acknowledge)
+            + confirmReception(shipment)
+            + cancelShipment(shipment)
+            + reportIncident(shipment, form)
+        }
+    }
+
+    package "Infrastructure" as execution_infrastructure {
+        class ExecutionApi
+        class ShipmentAssembler <<assembler>>
+        class IncidentAssembler <<assembler>>
+
+        ExecutionApi --|> BaseApi
+        ShipmentAssembler --> IncidentAssembler
+    }
+
+    package "Presentation" as execution_presentation {
+        class ActiveTrip <<view>>
+        class TripHistory <<view>>
+        class ShipmentTracking <<view>>
+        class ShipmentHistory <<view>>
+        class ShipmentTimeline <<component>>
+        class TrackingMap <<component>>
+        class IncidentDialog <<component>>
+
+        ActiveTrip --> ShipmentTimeline
+        ActiveTrip --> TrackingMap
+        ActiveTrip --> IncidentDialog
+        ShipmentTracking --> ShipmentTimeline
+        ShipmentTracking --> TrackingMap
+        ShipmentTracking --> IncidentDialog
+    }
+
+    ExecutionStore --> ExecutionApi
+    ExecutionStore --> ShipmentAssembler
+    ExecutionStore --> NotificationStore
+    ActiveTrip --> ExecutionStore
+    TripHistory --> ExecutionStore
+    ShipmentTracking --> ExecutionStore
+    ShipmentHistory --> ExecutionStore
+}
+
+package "Payment & Billing Bounded Context" as billing {
+    package "Domain" as billing_domain {
+        class PaymentTransaction <<aggregate root>> {
+            - _id: number
+            - _userId: number
+            - _plan: SubscriptionPlan
+            - _amount: Money
+            - _method: PaymentMethod
+            - _status: PaymentStatus
+            - _periodStart: string
+            - _periodEnd: string
+            + {static} create(params): PaymentTransaction
+            + markPaid(authorizationCode, now)
+            + markFailed()
+            + covers(today): boolean
+        }
+
+        class Receipt <<aggregate root>> {
+            - _id: number
+            - _transactionId: number
+            - _type: ReceiptType
+            - _number: number
+            - _customerName: string
+            - _customerDocument: string
+            - _total: Money
+            + {static} issue(params): Receipt
+            + code: string
+            + subtotal: Money
+            + igv: Money
+        }
+
+        class SubscriptionPlan <<value object>> {
+            + price: Money
+            + monthlyPublications: number
+            + allowsPublication(used): boolean
+        }
+        class PaymentMethod <<value object>> {
+            + {static} fromCard(params): PaymentMethod
+            + {static} passesLuhn(digits): boolean
+            + label: string
+        }
+        class PaymentStatus <<value object>>
+        class ReceiptType <<value object>> {
+            + series: string
+            + acceptsDocument(document): boolean
+        }
+
+        PaymentTransaction *-- SubscriptionPlan
+        PaymentTransaction *-- PaymentMethod
+        PaymentTransaction *-- PaymentStatus
+        PaymentTransaction *-- Money
+        Receipt *-- ReceiptType
+        Receipt *-- Money
+        Receipt ..> PaymentTransaction : transactionId
+    }
+
+    package "Application" as billing_application {
+        class BillingStore <<store>> {
+            - state: {transactions, receipts, loaded, processing, errors}
+            + currentPlan: computed
+            + activeSubscription: computed
+            + fetchBilling()
+            + canPublish(used): boolean
+            + upgradeToPro(form): Promise
+        }
+    }
+
+    package "Infrastructure" as billing_infrastructure {
+        class BillingApi
+        class PaymentGateway <<adapter>> {
+            + charge(amount, method): Promise
+        }
+        class PaymentTransactionAssembler <<assembler>>
+        class ReceiptAssembler <<assembler>>
+
+        BillingApi --|> BaseApi
+    }
+
+    package "Presentation" as billing_presentation {
+        class PlanBilling <<view>>
+        class ReceiptDialog <<component>>
+
+        PlanBilling --> ReceiptDialog
+    }
+
+    BillingStore --> BillingApi
+    BillingStore --> PaymentGateway
+    BillingStore --> PaymentTransactionAssembler
+    BillingStore --> ReceiptAssembler
+    PlanBilling --> BillingStore
+}
+
+package "Loyalty & Reputation Bounded Context" as reputation {
+    package "Domain" as reputation_domain {
+        class Rating <<aggregate root>> {
+            - _id: number
+            - _shipmentId: number
+            - _raterId: number
+            - _target: RatingTarget
+            - _score: Score
+            - _tags: string[]
+            - _comment: string
+        }
+
+        class Score <<value object>> {
+            + isPositive: boolean
+        }
+        class RatingTarget <<value object>> {
+            + allowedTags: string[]
+        }
+
+        Rating *-- Score
+        Rating *-- RatingTarget
+    }
+
+    package "Application" as reputation_application {
+        class ReputationStore <<store>> {
+            - state: {ratings, loaded, errors}
+            + myReceivedRatings: computed
+            + myGivenRatings: computed
+            + fetchRatings()
+            + summaryFor(userId): object
+            + ratingForShipmentBy(shipmentId, raterId): Rating
+            + submitRating(params): Promise<Rating>
+        }
+    }
+
+    package "Infrastructure" as reputation_infrastructure {
+        class ReputationApi
+        class RatingAssembler <<assembler>>
+
+        ReputationApi --|> BaseApi
+    }
+
+    package "Presentation" as reputation_presentation {
+        class RatingList <<view>>
+        class RatingDialog <<component>>
+    }
+
+    ReputationStore --> ReputationApi
+    ReputationStore --> RatingAssembler
+    RatingList --> ReputationStore
+    RatingDialog --> ReputationStore
+}
+
+MatchmakingStore ..> ExecutionStore : confirmMatch opens shipment
+MatchmakingStore ..> BillingStore : publication limit
+MatchmakingStore ..> ProfileStore : vehicles and names
+ReputationStore ..> Shipment : delivered shipment
+ActiveTrip --> RatingDialog
+ShipmentTracking --> RatingDialog
+@enduml

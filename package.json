@@ -1,0 +1,40 @@
+{
+  "name": "trazza-web",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Trazza is a logistics web platform that connects carriers with empty return trips and merchants who need to ship goods in Lima. It is built with Domain-Driven Design (DDD) principles using Vue, Axios, Vite, PrimeVue and JavaScript.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "cd server && json-server --watch db.json --routes routes.json"
+  },
+  "keywords": [
+    "vue",
+    "vite",
+    "primevue",
+    "primeflex",
+    "primeicons",
+    "axios",
+    "json-server",
+    "domain-driven-design",
+    "logistics",
+    "trazza"
+  ],
+  "dependencies": {
+    "@primeuix/themes": "^3.0.1",
+    "axios": "^1.20.0",
+    "primeflex": "^4.0.0",
+    "primeicons": "^8.0.1",
+    "primevue": "^5.0.1",
+    "vue": "^3.5.43",
+    "vue-i18n": "^11.4.12",
+    "vue-router": "^5.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.9",
+    "json-server": "^0.17.4",
+    "vite": "^8.3.0"
+  }
+}
